@@ -1,120 +1,151 @@
-<p></p><h1> Moodle Book Chapter Search <p></p></h1>
-<p>This script pulls from the listed Moodle books and returns chapters that match your search query.</p>
-<p>Moodle has same origin policy set so ajax calls etc from outside the domain will fail. This script only works from inside Moodle.</p>
+<h1>Moodle Book Chapter Search</h1>
 
-<style>
-    #mbcs_db_body, #mbcs_results{
-        border: 1px solid black
-    }
-</style>
+<p>This script pulls from the listed Moodle books and returns chapters that match your search query.</p>
+
+<p>Moodle has same origin policy set so ajax calls etc from outside the domain will fail. This script only works from inside Moodle.</p>
 
 <div id="mbcs_db_wrapper">
     <p> Book database: </p>
     <table id="mbcs_db" style="border: 1px dashed lightgray; padding: 20px">
-        <thead>
-            <tr>
-            </tr>
-        </thead>
-        <tbody id="mbcs_db_body">
-        </tbody>
-    </table>
+        <tbody><tr><td></td></tr>
+    </tbody></table>
 </div>
 
-<br>
+<p><br></p>
 
 <div id="mbcs_input_wrapper">
-    <input type="text" id="mbcs_input_query_text" placeholder="Query">
+    <input id="mbcs_input_query_text" placeholder="Query" type="text">
     <button id="mbcs_input_submit"> Submit </button>
     <span id="mbcs_error_text" style="font-size: small; color: red"></span>
 </div>
 
 <div id="mbcs_results_wrapper">
-    <ul id="mbcs_results"></ul>
+    <ul id="mbcs_results"><li></li></ul>
 </div>
 
-<script>
+<script type="text/javascript">
+//<![CDATA[
 
-var userQuery = "";
-var booksdb = [
-{
-    title: "Topics: Resources, Learning and Assessment Activities",
-    url: "https://moodle.op.ac.nz/mod/book/view.php?id=516081"
-},
-{
-    title: "Topics: Copyright and Open Educational Resources",
-    url: "https://moodle.op.ac.nz/mod/book/view.php?id=510030"
-},
-{
-    title: "Topics: Orientation and Assisting Students",
-    url: "https://moodle.op.ac.nz/mod/book/view.php?id=509523"
-}
+
+const mbcs_booksdb = [
+    {
+        title: "Topics: Resources, Learning and Assessment Activities",
+        url: "https://moodle.op.ac.nz/mod/book/view.php?id=516081"
+    },
+    {
+        title: "Topics: Copyright and Open Educational Resources",
+        url: "https://moodle.op.ac.nz/mod/book/view.php?id=510030"
+    },
+    {
+        title: "Topics: Orientation and Assisting Students",
+        url: "https://moodle.op.ac.nz/mod/book/view.php?id=509523"
+    }
 ];
 
-$(document).ready(function() {
 
-    //Populate table with booksdb
-    $.each(booksdb, function(k, v) {
-        $('#mbcs_db_body').append("<tr> <td>"+ "<a href='" + booksdb[k].url + "'>" + booksdb[k].title + "</a></td>");
-    });
+// HTML Elements
 
-    //User submit event
-    $('#mbcs_input_submit').click(function(e) {
-        $('#mbcs_results').empty();
-        userQuery = $('#mbcs_input_query_text').val();
-        if(userQuery.length != 0) {
-            $('#mbcs_error_text').html(" ");
-            searchPages(0);
-        } else {
-            $('#mbcs_error_text').html("Required.");
+let mbcs_db_html;
+let mbcs_input_query_html;
+let mbcs_input_submit_html;
+let mbcs_error_html;
+let mbcs_results_html;
+
+
+async function mbcs_init() {
+
+    // Get HTML elements
+    mbcs_db_html = document.querySelector("table#mbcs_db");
+    mbcs_input_query_html = document.querySelector("input#mbcs_input_query_text");
+    mbcs_input_submit_html = document.querySelector("button#mbcs_input_submit");
+    mbcs_error_html = document.querySelector("span#mbcs_error_text");
+    mbcs_results_html = document.querySelector("ul#mbcs_results");
+
+    // Populate table with booksdb
+    for (const book of mbcs_booksdb) {
+        const new_row = document.createElement("tr");
+        new_row.innerHTML = "<td>" + "<a href='" + book.url + "'>" + book.title + "</a></td>";
+        mbcs_db_html.appendChild(new_row);
+    }
+
+    // Listen to submit button
+    mbcs_input_submit_html.addEventListener("click", mbcs_search);
+
+}
+
+
+async function mbcs_search() {
+
+    // Clear results list
+    mbcs_results_html.innerHTML = "";
+
+    // Get search string
+    const userQuery = mbcs_input_query_html.value;
+    if (userQuery.length > 0) { /* OK */ }
+    else {
+        mbcs_error_html.innerHTML = "Required.";
+        return;
+    }
+
+    // Create HTML parser
+    const parser = new DOMParser();
+
+    for (const book_entry of mbcs_booksdb) {
+
+        // Fetch book page
+        const book_response = await fetch(book_entry.url);
+        if (book_response.ok) { /* OK */ }
+        else {
+            // console.error("Error while fetching: " + book_response.statusText);
+            mbcs_error_html.innerHTML = "An error occurred: " + book_response.statusText;
+            continue;
         }
-    });
-});
 
-function searchPages(index) {
+        // Parse book page
+        const book_unparsed = await book_response.text();
+        const book_page = parser.parseFromString(book_unparsed, "text/html");
 
-    //Recursively calls
-    if(index != booksdb.length) {
-        $.ajax({
-            url: booksdb[index].url,
-            dataType: "html",
-            success: function(data) {
-                stripAndPushData(data, booksdb[index].title);
-                searchPages(index + 1);
-            },
-            error: function(xhr, textStatus) {
-                console.error("Error while fetching: " + booksdb[index].title + ": " + textStatus);
-                $('#mbcs_error_text').append("<p>An error occurred searching " + booksdb[index].title + ": " + textStatus + "</p>");
-                searchPages(index + 1);
+        // Fetch table of contents
+        const toc = book_page.querySelector(".book_toc_indented, .book_toc_none");
+
+        // Create results line
+        const results_title = document.createElement("p");
+        results_title.innerHTML = "Results for " + book_entry.title;
+        const results_list = document.createElement("ul");
+
+        // console.log(userQuery);
+
+        // Operate on direct <a> children of <li> (no actionbar items)
+        for (const node of Object.values(toc.querySelectorAll(":scope li > a"))) {
+            if ((node.textContent || "").includes(userQuery)) {
+                const title = node.getAttribute("title");
+                const href = "https://moodle.op.ac.nz/mod/book/" + node.getAttribute("href");
+                const listItem = document.createElement("li");
+                listItem.innerHTML = "<a href='" + href + "'>" + title + "</a>";
+                results_list.appendChild(listItem);
+                // console.log("append");
             }
-        });
-    }
-}
-
-function stripAndPushData(data, title) {
-
-    //Fetch table of contents
-    var toc = $('.book_toc_indented, .book_toc_none', data);
-    var results_title = "<p> Results for " + title + "</p>";
-    var results_list = document.createElement('ul');
-
-    //Operate on direct <a> children of <li> (no actionbar items)
-    $('li > a', toc).each(function(index, node){
-        if(node.textContent.includes(userQuery)) {
-            var title = $(node).attr('title');
-            var href = "https://moodle.op.ac.nz/mod/book/" + $(node).attr('href');
-            var listItem = "<li><a href='" + href+ "'>" + title + "</a></li>";
-            $(results_list).append(listItem);
         }
-    });
 
-    $('#mbcs_results').append(results_title);
+        // Add results
+        mbcs_results_html.appendChild(results_title);
 
-    if(results_list.firstChild) {
-        $('#mbcs_results').append(results_list);
-    } else {
-        $('#mbcs_results').append("<p> No results found </p>");
+        if (results_list.firstChild) {
+            mbcs_results_html.appendChild(results_list);
+        }
+        else {
+            const no_results_message = document.createElement("p");
+            no_results_message.innerHTML = "No results found";
+            mbcs_results_html.appendChild(no_results_message);
+        }
+
     }
-    
+
 }
 
+
+window.addEventListener("load", mbcs_init);
+
+
+//]]>
 </script>
