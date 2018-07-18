@@ -62,9 +62,10 @@ $(document).ready(function() {
         $('#mbcs_results').empty();
         userQuery = $('#mbcs_input_query_text').val();
         if(userQuery.length != 0) {
+            $('#mbcs_error_text').html(" ");
             searchPages(0);
         } else {
-            updateError("Required.");
+            $('#mbcs_error_text').html("Required.");
         }
     });
 });
@@ -81,8 +82,8 @@ function searchPages(index) {
                 searchPages(index + 1);
             },
             error: function(xhr, textStatus) {
-                console.error("Error while fetching: " + textStatus);
-                updateError("An error occurred: " + textStatus);
+                console.error("Error while fetching: " + booksdb[index].title + ": " + textStatus);
+                $('#mbcs_error_text').append("<p>An error occurred searching " + booksdb[index].title + ": " + textStatus + "</p>");
                 searchPages(index + 1);
             }
         });
@@ -114,10 +115,6 @@ function stripAndPushData(data, title) {
         $('#mbcs_results').append("<p> No results found </p>");
     }
     
-}
-
-function updateError(str) {
-    $('#mbcs_error_text').html(str);
 }
 
 </script>
