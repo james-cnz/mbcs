@@ -1,0 +1,123 @@
+<p></p><h1> Moodle Book Chapter Search <p></p></h1>
+<p>This script pulls from the listed Moodle books and returns chapters that match your search query.</p>
+<p>Moodle has same origin policy set so ajax calls etc from outside the domain will fail. This script only works from inside Moodle.</p>
+
+<style>
+    #mbcs_db_body, #mbcs_results{
+        border: 1px solid black
+    }
+</style>
+
+<div id="mbcs_db_wrapper">
+    <p> Book database: </p>
+    <table id="mbcs_db" style="border: 1px dashed lightgray; padding: 20px">
+        <thead>
+            <tr>
+            </tr>
+        </thead>
+        <tbody id="mbcs_db_body">
+        </tbody>
+    </table>
+</div>
+
+<br>
+
+<div id="mbcs_input_wrapper">
+    <input type="text" id="mbcs_input_query_text" placeholder="Query">
+    <button id="mbcs_input_submit"> Submit </button>
+    <span id="mbcs_error_text" style="font-size: small; color: red"></span>
+</div>
+
+<div id="mbcs_results_wrapper">
+    <ul id="mbcs_results"></ul>
+</div>
+
+<script>
+
+var userQuery = "";
+var booksdb = [
+{
+    title: "Topics: Resources, Learning and Assessment Activities",
+    url: "https://moodle.op.ac.nz/mod/book/view.php?id=516081"
+},
+{
+    title: "Topics: Copyright and Open Educational Resources",
+    url: "https://moodle.op.ac.nz/mod/book/view.php?id=510030"
+},
+{
+    title: "Topics: Orientation and Assisting Students",
+    url: "https://moodle.op.ac.nz/mod/book/view.php?id=509523"
+}
+];
+
+$(document).ready(function() {
+
+    //Populate table with booksdb
+    $.each(booksdb, function(k, v) {
+        $('#mbcs_db_body').append("<tr> <td>"+ "<a href='" + booksdb[k].url + "'>" + booksdb[k].title + "</a></td>");
+    });
+
+    //User submit event
+    $('#mbcs_input_submit').click(function(e) {
+        $('#mbcs_results').empty();
+        userQuery = $('#mbcs_input_query_text').val();
+        if(userQuery.length != 0) {
+            searchPages(0);
+        } else {
+            updateError("Required.");
+        }
+    });
+});
+
+function searchPages(index) {
+
+    //Recursively calls
+    if(index != booksdb.length) {
+        $.ajax({
+            url: booksdb[index].url,
+            dataType: "html",
+            success: function(data) {
+                stripAndPushData(data, booksdb[index].title);
+                searchPages(index + 1);
+            },
+            error: function(xhr, textStatus) {
+                console.error("Error while fetching: " + textStatus);
+                updateError("An error occurred: " + textStatus);
+                searchPages(index + 1);
+            }
+        });
+    }
+}
+
+function stripAndPushData(data, title) {
+
+    //Fetch table of contents
+    var toc = $('.book_toc_indented, .book_toc_none', data);
+    var results_title = "<p> Results for " + title + "</p>";
+    var results_list = document.createElement('ul');
+
+    //Operate on direct <a> children of <li> (no actionbar items)
+    $('li > a', toc).each(function(index, node){
+        if(node.textContent.includes(userQuery)) {
+            var title = $(node).attr('title');
+            var href = "https://moodle.op.ac.nz/mod/book/" + $(node).attr('href');
+            var listItem = "<li><a href='" + href+ "'>" + title + "</a></li>";
+            $(results_list).append(listItem);
+        }
+    });
+
+    $('#mbcs_results').append(results_title);
+
+    if(results_list.firstChild) {
+        $('#mbcs_results').append(results_list);
+    } else {
+        $('#mbcs_results').append("<p> No results found </p>");
+    }
+    
+}
+
+function updateError(str) {
+    $('#mbcs_error_text').html(str);
+}
+
+</script>
