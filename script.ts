@@ -1,30 +1,3 @@
-<h1>Moodle Book Chapter Search</h1>
-
-<p>This script pulls from the listed Moodle books and returns chapters that match your search query.</p>
-
-<p>Moodle has same origin policy set so ajax calls etc from outside the domain will fail. This script only works from inside Moodle.</p>
-
-<div id="mbcs_db_wrapper">
-    <p> Book database: </p>
-    <table id="mbcs_db" style="border: 1px dashed lightgray; padding: 20px">
-        <tbody><tr><td></td></tr>
-    </tbody></table>
-</div>
-
-<p><br></p>
-
-<div id="mbcs_input_wrapper">
-    <input id="mbcs_input_query_text" placeholder="Query" type="text">
-    <button id="mbcs_input_submit"> Submit </button>
-    <span id="mbcs_error_text" style="font-size: small; color: red"></span>
-</div>
-
-<div id="mbcs_results_wrapper">
-    <ul id="mbcs_results"><li></li></ul>
-</div>
-
-<script type="text/javascript">
-//<![CDATA[
 
 
 const mbcs_booksdb = [
@@ -42,24 +15,23 @@ const mbcs_booksdb = [
     }
 ];
 
-
 // HTML Elements
 
-let mbcs_db_html;
-let mbcs_input_query_html;
-let mbcs_input_submit_html;
-let mbcs_error_html;
-let mbcs_results_html;
+let mbcs_db_html:           HTMLTableElement;
+let mbcs_input_query_html:  HTMLInputElement;
+let mbcs_input_submit_html: HTMLButtonElement;
+let mbcs_error_html:        HTMLSpanElement;
+let mbcs_results_html:      HTMLUListElement;
 
 
-async function mbcs_init() {
+async function mbcs_init(): Promise<void> {
 
     // Get HTML elements
-    mbcs_db_html = document.querySelector("table#mbcs_db");
-    mbcs_input_query_html = document.querySelector("input#mbcs_input_query_text");
-    mbcs_input_submit_html = document.querySelector("button#mbcs_input_submit");
-    mbcs_error_html = document.querySelector("span#mbcs_error_text");
-    mbcs_results_html = document.querySelector("ul#mbcs_results");
+    mbcs_db_html            = document.querySelector("table#mbcs_db")               as HTMLTableElement;
+    mbcs_input_query_html   = document.querySelector("input#mbcs_input_query_text") as HTMLInputElement;
+    mbcs_input_submit_html  = document.querySelector("button#mbcs_input_submit")    as HTMLButtonElement;
+    mbcs_error_html         = document.querySelector("span#mbcs_error_text")        as HTMLSpanElement;
+    mbcs_results_html       = document.querySelector("ul#mbcs_results")             as HTMLUListElement;
 
     // Populate table with booksdb
     for (const book of mbcs_booksdb) {
@@ -74,15 +46,14 @@ async function mbcs_init() {
 }
 
 
-async function mbcs_search() {
+async function mbcs_search(): Promise<void> {
 
     // Clear results list
     mbcs_results_html.innerHTML = "";
 
     // Get search string
     const userQuery = mbcs_input_query_html.value;
-    if (userQuery.length > 0) { /* OK */ }
-    else {
+    if (userQuery.length > 0) { /*OK*/ } else {
         mbcs_error_html.innerHTML = "Required.";
         return;
     }
@@ -94,8 +65,7 @@ async function mbcs_search() {
 
         // Fetch book page
         const book_response = await fetch(book_entry.url);
-        if (book_response.ok) { /* OK */ }
-        else {
+        if (book_response.ok) { /*OK*/ } else {
             // console.error("Error while fetching: " + book_response.statusText);
             mbcs_error_html.innerHTML = "An error occurred: " + book_response.statusText;
             continue;
@@ -109,18 +79,18 @@ async function mbcs_search() {
         const toc = book_page.querySelector(".book_toc_indented, .book_toc_none");
 
         // Create results line
-        const results_title = document.createElement("p");
+        const results_title   = document.createElement("p");
         results_title.innerHTML = "Results for " + book_entry.title;
-        const results_list = document.createElement("ul");
+        const results_list    = document.createElement("ul");
 
         // console.log(userQuery);
 
         // Operate on direct <a> children of <li> (no actionbar items)
         for (const node of Object.values(toc.querySelectorAll(":scope li > a"))) {
             if ((node.textContent || "").includes(userQuery)) {
-                const title = node.getAttribute("title");
-                const href = "https://moodle.op.ac.nz/mod/book/" + node.getAttribute("href");
-                const listItem = document.createElement("li");
+                const title     = node.getAttribute("title");
+                const href      = "https://moodle.op.ac.nz/mod/book/" + node.getAttribute("href");
+                const listItem  = document.createElement("li");
                 listItem.innerHTML = "<a href='" + href + "'>" + title + "</a>";
                 results_list.appendChild(listItem);
                 // console.log("append");
@@ -132,20 +102,15 @@ async function mbcs_search() {
 
         if (results_list.firstChild) {
             mbcs_results_html.appendChild(results_list);
-        }
-        else {
+        } else {
             const no_results_message = document.createElement("p");
             no_results_message.innerHTML = "No results found";
             mbcs_results_html.appendChild(no_results_message);
         }
 
     }
-
 }
 
 
 window.addEventListener("load", mbcs_init);
 
-
-//]]>
-</script>
