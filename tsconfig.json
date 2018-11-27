@@ -1,0 +1,6 @@
+{
+    "compilerOptions": {
+        "target":   "es2017",                           // Remove to polyfill for backwards compatibility
+        "lib":      ["dom", "es5", "es2015.promise"]
+    }
+}

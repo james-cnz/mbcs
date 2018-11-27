@@ -1,20 +1,30 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML Basic 1.1//EN"
+    "http://www.w3.org/TR/xhtml-basic/xhtml-basic11.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" >
+
+<head >
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Book Search</title>
+</head>
+
+<body>
+
 <h1>Moodle Book Chapter Search</h1>
 
-<p>This script pulls from the listed Moodle books and returns chapters that match your search query.</p>
-
-<p>Moodle has same origin policy set so ajax calls etc from outside the domain will fail. This script only works from inside Moodle.</p>
+<p>This script pulls from the listed Moodle books, and returns chapters that match your search query.</p>
 
 <div id="mbcs_db_wrapper">
     <p> Book database: </p>
-    <table id="mbcs_db" style="border: 1px dashed lightgray; padding: 20px">
-        <tbody><tr><td></td></tr>
-    </tbody></table>
+    <table id="mbcs_db" style="border: 1px dashed lightgray; padding: 20px;">
+        <tr><td></td></tr>
+    </table>
 </div>
 
-<p><br></p>
+<p><br /></p>
 
 <div id="mbcs_input_wrapper">
-    <input id="mbcs_input_query_text" placeholder="Query" type="text">
+    <input id="mbcs_input_query_text" type="text" placeholder="Query" />
     <button id="mbcs_input_submit"> Submit </button>
     <span id="mbcs_error_text" style="font-size: small; color: red"></span>
 </div>
@@ -24,7 +34,8 @@
 </div>
 
 <script type="text/javascript">
-//<![CDATA[
+// <![CDATA[
+
 const mbcs_booksdb = [
     {
         title: "Topics: Resources, Learning and Assessment Activities",
@@ -39,95 +50,105 @@ const mbcs_booksdb = [
         url: "https://moodle.op.ac.nz/mod/book/view.php?id=509523"
     }
 ];
+
 // HTML Elements
 let mbcs_db_html;
 let mbcs_input_query_html;
 let mbcs_input_submit_html;
 let mbcs_error_html;
 let mbcs_results_html;
-
-let userQuery;
+let mbcs_user_query;
 
 function mbcs_init() {
+
     // Get HTML elements
     mbcs_db_html = document.querySelector("table#mbcs_db");
     mbcs_input_query_html = document.querySelector("input#mbcs_input_query_text");
     mbcs_input_submit_html = document.querySelector("button#mbcs_input_submit");
     mbcs_error_html = document.querySelector("span#mbcs_error_text");
     mbcs_results_html = document.querySelector("ul#mbcs_results");
+
     // Populate table with booksdb
-    for (const book of mbcs_booksdb) {
+    for (let book_index = 0; book_index < mbcs_booksdb.length; book_index++) {
+        const book = mbcs_booksdb[book_index];
         const new_row = document.createElement("tr");
-        new_row.innerHTML = "<td>" + "<a href='" + book.url + "'>" + book.title + "</a></td>";
+        new_row.innerHTML = "<td><a href=\"" + book.url + "\">" + book.title + "</a></td>";
         mbcs_db_html.appendChild(new_row);
     }
+
     // Listen to submit button
     mbcs_input_submit_html.addEventListener("click", mbcs_search);
+
 }
 
 async function mbcs_search() {
 
     // Clear results list
     mbcs_results_html.innerHTML = "";
-    // Get search string
-    userQuery = mbcs_input_query_html.value;
 
-    if (userQuery.length <= 0) { 
+    // Get search string
+    mbcs_user_query = mbcs_input_query_html.value;
+    if (mbcs_user_query.length <= 0) {
         mbcs_error_html.innerHTML = "Required.";
         return;
     }
 
-    for (const book_entry of mbcs_booksdb) {
+    for (let book_index = 0; book_index < mbcs_booksdb.length; book_index++) {
+        const book_entry = mbcs_booksdb[book_index];
 
         // Fetch book page
+        let text = null;
         try {
-            var resp = await fetch(book_entry.url, {
+            const resp = await fetch(book_entry.url, {
                 method: "GET",
                 mode: "same-origin",
                 credentials: "same-origin",
                 redirect: "follow",
-                headers: {
-                    "Content-Type": "text/html"
-                }
+                headers: { "Content-Type": "text/html" }
             });
-            if(resp.ok) {
-                var text = await resp.text();
-                mbcs_parse_push_data(text, book_entry.title);
-            } else {
-                console.error("Error while fetching: " + resp.statusText);
-                mbcs_error_html.innerHTML = "An error occured while fetching: " + book_entry.title;
+            if (resp.ok) {
+                text = await resp.text();
             }
-
-        } catch(err) {
+            else {
+                console.error("Error while fetching: " + resp.statusText);
+                mbcs_error_html.innerHTML = "An error occurred while fetching: " + book_entry.title;
+            }
+        }
+        catch (err) {
             console.error("Error while fetching: " + err);
             mbcs_error_html.innerHTML = "An error occured while fetching: " + book_entry.title;
         }
-    }
-}
-
-function mbcs_parse_push_data(data, title) {
+        if (!text) {
+            continue;
+        }
 
     // Create HTML parser
     const parser = new DOMParser();
+
     // Parse book page
-    const book_page = parser.parseFromString(data, "text/html");
+    const book_page = parser.parseFromString(text, "text/html");
+
     // Fetch table of contents
-    const toc = book_page.querySelector(".book_toc_indented, .book_toc_none");
+    const toc = book_page.querySelector(".book_toc_indented, .book_toc_none, .book_toc_numbered");
+
     // Create results line
     const results_title = document.createElement("p");
-    results_title.innerHTML = "Results for " + title;
+    results_title.innerHTML = "Results for " + book_entry.title;
     const results_list = document.createElement("ul");
 
     // Operate on direct <a> children of <li> (no actionbar items)
-    for (const node of Object.values(toc.querySelectorAll(":scope li > a"))) {
-        if ((node.textContent || "").includes(userQuery)) {
+    const nodes = toc.querySelectorAll("li > a");
+    for (let node_index = 0; node_index < nodes.length; node_index++) {
+        const node = nodes[node_index];
+        if ((node.textContent || "").toLowerCase().indexOf(mbcs_user_query.toLowerCase()) >= 0) {
             const title = node.getAttribute("title");
             const href = "https://moodle.op.ac.nz/mod/book/" + node.getAttribute("href");
-            const listItem = document.createElement("li");
-            listItem.innerHTML = "<a href='" + href + "'>" + title + "</a>";
-            results_list.appendChild(listItem);
+            const list_item = document.createElement("li");
+            list_item.innerHTML = "<a href=\"" + href + "\">" + title + "</a>";
+            results_list.appendChild(list_item);
         }
     }
+
     // Add results
     mbcs_results_html.appendChild(results_title);
     if (results_list.firstChild) {
@@ -138,8 +159,17 @@ function mbcs_parse_push_data(data, title) {
         no_results_message.innerHTML = "No results found";
         mbcs_results_html.appendChild(no_results_message);
     }
+        
+    }
+
 }
 
 window.addEventListener("load", mbcs_init);
-//]]>
+
+// ]]>
 </script>
+
+
+</body>
+
+</html>
